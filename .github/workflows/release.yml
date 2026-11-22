@@ -1,0 +1,233 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing v* tag to build and release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+jobs:
+  build-macos:
+    name: Build (macOS)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.11.2
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache dictionaries
+        id: dict-cache
+        uses: actions/cache@v4
+        with:
+          path: public/dict
+          key: dict-${{ hashFiles('scripts/fetch-dict.sh', 'scripts/fetch-jmdict.sh', 'scripts/build-jmdict.mjs') }}
+
+      - name: Fetch dictionaries
+        if: steps.dict-cache.outputs.cache-hit != 'true'
+        run: |
+          sh scripts/fetch-dict.sh
+          sh scripts/fetch-jmdict.sh
+
+      - name: Build Tauri bundles
+        run: pnpm tauri build --verbose
+
+      - name: Normalize bundle names
+        shell: bash
+        run: |
+          dmg="$(find src-tauri/target/release/bundle -type f -name '*.dmg' -print -quit)"
+          if [[ -z "$dmg" ]]; then
+            echo "Could not find a .dmg bundle." >&2
+            exit 1
+          fi
+          mkdir -p release-artifacts
+          cp "$dmg" "release-artifacts/Kotonoha-${RELEASE_TAG}-macos-arm64.dmg"
+
+      - name: Upload bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kotonoha-macos-arm64
+          path: release-artifacts/*
+          if-no-files-found: error
+
+  build-android:
+    name: Build (Android)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.11.2
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android SDK and NDK
+        run: sdkmanager "platforms;android-37.0" "ndk;30.0.15729638"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: android-arm64
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache dictionaries
+        id: dict-cache
+        uses: actions/cache@v4
+        with:
+          path: public/dict
+          key: dict-${{ hashFiles('scripts/fetch-dict.sh', 'scripts/fetch-jmdict.sh', 'scripts/build-jmdict.mjs') }}
+
+      - name: Fetch dictionaries
+        if: steps.dict-cache.outputs.cache-hit != 'true'
+        run: |
+          sh scripts/fetch-dict.sh
+          sh scripts/fetch-jmdict.sh
+
+      - name: Prepare Android signing key
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [[ -z "$KEYSTORE_BASE64" || -z "$KEYSTORE_PASSWORD" || -z "$KEY_ALIAS" || -z "$KEY_PASSWORD" ]]; then
+            echo "Android release signing secrets are not configured." >&2
+            echo "Required: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD." >&2
+            exit 1
+          fi
+
+          keystore_path="$RUNNER_TEMP/kotonoha-release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
+      - name: Build signed Android APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          export NDK_HOME="$ANDROID_HOME/ndk/30.0.15729638"
+          pnpm tauri android build --apk --target aarch64 --ci
+
+      - name: Collect Android APK
+        shell: bash
+        run: |
+          apk_path="$(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*release*.apk' -print -quit)"
+          if [[ -z "$apk_path" ]]; then
+            echo "Android release APK was not generated." >&2
+            exit 1
+          fi
+          mkdir -p android-artifacts
+          cp "$apk_path" "android-artifacts/Kotonoha-${RELEASE_TAG}-android-arm64.apk"
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kotonoha-android
+          path: android-artifacts/*.apk
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    needs:
+      - build-macos
+      - build-android
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download bundles
+        uses: actions/download-artifact@v4
+        with:
+          path: build-artifacts
+          merge-multiple: true
+
+      - name: Determine release type
+        id: release_meta
+        shell: bash
+        run: |
+          if [[ "${RELEASE_TAG}" =~ -(alpha|beta|rc)([.-][0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Kotonoha ${{ env.RELEASE_TAG }}
+          generate_release_notes: true
+          prerelease: ${{ steps.release_meta.outputs.is_prerelease }}
+          files: |
+            build-artifacts/**/*.dmg
+            build-artifacts/**/*.apk
+          fail_on_unmatched_files: true
