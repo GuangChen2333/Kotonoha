@@ -1,0 +1,69 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+*.tsbuildinfo
+coverage
+.vite
+tmp/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Lindera 词典包,由 scripts/fetch-dict.sh 下载
+public/dict/
+
+# 版权书籍,仅本机测试用
+samples/
+
+# Rust / Tauri 构建产物
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# Android 工程由 `tauri android init` 生成,只提交源码,不提交构建产物与本机配置
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/build/
+src-tauri/gen/android/app/build/
+src-tauri/gen/android/app/src/main/jniLibs/
+src-tauri/gen/android/app/src/main/assets/
+src-tauri/gen/android/app/.tauri/
+src-tauri/gen/android/.tauri/
+src-tauri/gen/android/local.properties
+src-tauri/gen/android/captures/
+
+# 密钥与签名,不要提交
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+
+# 安装包
+*.apk
+*.aab
+*.dmg
+*.msi
+*.AppImage
+
+# 私有设计文档,不进版本库
+docs/private-design-docs/
+
