@@ -6,7 +6,16 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-URL="$(curl -fsSL https://api.github.com/repos/scriptin/jmdict-simplified/releases/latest | node -e '
+# CI 里匿名调用 GitHub API 容易被限流,有 GITHUB_TOKEN 时带上
+github_api() {
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" "$1"
+  else
+    curl -fsSL "$1"
+  fi
+}
+
+URL="$(github_api https://api.github.com/repos/scriptin/jmdict-simplified/releases/latest | node -e '
 let s = ""
 process.stdin.on("data", (d) => (s += d)).on("end", () => {
   const asset = JSON.parse(s).assets.find((a) => /^jmdict-eng-\d.*\.json\.tgz$/.test(a.name))
