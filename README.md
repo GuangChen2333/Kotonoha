@@ -32,6 +32,22 @@ Android 书架和点词弹窗:
 
 示例书:太宰治《走れメロス》、夏目漱石《吾輩は猫である》。
 
+## 安装
+
+### macOS
+
+从 [Releases](https://github.com/GuangChen2333/Kotonoha/releases) 下载 `Kotonoha-<版本>-macos-arm64.dmg`,只支持 Apple 芯片的 Mac。
+
+1. 打开 dmg,把 Kotonoha 拖进「应用程序」。
+2. 第一次打开时系统会提示无法验证开发者,点「完成」或「好」关掉。
+3. 打开「系统设置」→「隐私与安全性」,滚动到「安全性」一栏,找到 Kotonoha 被阻止的提示,点「仍要打开」,再输入密码确认。之后就可以正常打开了。
+
+macOS 15 以前也可以在「应用程序」里右键点 Kotonoha,选「打开」。如果设置里没有出现「仍要打开」,可以在终端里去掉隔离标记:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Kotonoha.app
+```
+
 ## 运行
 
 需要 Node.js、pnpm、Rust(edition 2024,最低 1.90)和 [Tauri 的系统依赖](https://tauri.app/start/prerequisites/)。
