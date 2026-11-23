@@ -11,6 +11,7 @@ import { FadeIn } from './motion'
 import Illustration from './Illustration'
 import ChapterEdge from './ChapterEdge'
 import { useOverscroll } from './useOverscroll'
+import { useBackHandler } from './useBackHandler'
 import LlmSettingsDialog from './LlmSettingsDialog'
 import { addBook, getBookFile, listBooks, markOpened, removeBook, saveProgress, type BookMeta } from './library'
 import Shelf from './Shelf'
@@ -162,6 +163,11 @@ export default function App() {
     setWord(null)
     refreshShelf()
   }
+
+  useBackHandler(llmOpen, () => setLlmOpen(false))
+  useBackHandler(!!word, () => setWord(null))
+  useBackHandler(chaptersOpen, () => setChaptersOpen(false))
+  useBackHandler(!!book, closeBook)
 
   const items = content?.items ?? NO_ITEMS
   const sentences = useMemo(() => items.flatMap((item) => (item.type === 'sentence' ? [item.sentence] : [])), [items])

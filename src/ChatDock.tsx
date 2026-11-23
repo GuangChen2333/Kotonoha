@@ -12,6 +12,7 @@ import { chatStream, NotConfiguredError, type ChatMessage } from './llm/client'
 import { chatContext } from './llm/prompts'
 import { READING_FONT, tint, ZH_SERIF } from './theme'
 import { useVisualViewport } from './useVisualViewport'
+import { useBackHandler } from './useBackHandler'
 
 interface Props {
   /** 书架里这本书的 id;对话按书保存 */
@@ -63,6 +64,7 @@ export default function ChatDock({ bookId, sentences, activeIndex, onOpenLlm }: 
   const mobile = useMediaQuery((t: Theme) => t.breakpoints.down('sm'))
   // 手机上对话占满可见区域,并随软键盘缩放,输入框才不会被键盘盖住
   const viewport = useVisualViewport(mobile && open)
+  useBackHandler(open, () => setOpen(false))
 
   useEffect(() => {
     const el = scroller.current
