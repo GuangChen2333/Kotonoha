@@ -50,7 +50,7 @@ jobs:
             echo "LATEST=$latest" >> "$GITHUB_ENV"
           fi
 
-      - name: Bump version and tag
+      - name: Record the new version
         if: env.SKIP != 'true'
         run: |
           node -e '
@@ -59,6 +59,17 @@ jobs:
             meta.jmdictSimplified = process.env.LATEST
             fs.writeFileSync("dict-version.meta.json", JSON.stringify(meta, null, 2) + "\n")
           '
+
+      # 先在这里试着构建一遍新词典:格式变了导致构建失败时,在提交、打 tag 之前就报错,main 保持干净、下次还会重试
+      - name: Verify the new dictionary builds
+        if: env.SKIP != 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: sh scripts/fetch-jmdict.sh
+
+      - name: Bump version and tag
+        if: env.SKIP != 'true'
+        run: |
           version="$(node scripts/bump-version.mjs)"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
