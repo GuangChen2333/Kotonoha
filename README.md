@@ -86,7 +86,7 @@ React 19、TypeScript、Vite。界面用 MUI,遵循 Material Design,主题色和
 
 ## 数据来源
 
-- [JMdict](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) © EDRDG,CC BY-SA 4.0。EDRDG 的许可要求定期更新数据,重新运行 `scripts/fetch-jmdict.sh` 即可。
+- [JMdict](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) © EDRDG,CC BY-SA 4.0。EDRDG 的许可要求定期更新数据,由 `.github/workflows/dict-update.yml` 每两周检查新版本,更新 `dict-version.meta.json` 并发布新版。
 - [jmdict-cn](https://github.com/zzhuxiaojun-glitch/jmdict-cn) 的中文释义,CC BY-SA 4.0。释义由大模型生成,没有人工校对。只覆盖约 2.3 万个常用词条;用一本测试小说量过,按词的种类约 72%、按出现次数约 90% 有中文释义。人名、复合动词和拟声词多数没有。
 
 应用内的弹窗已经标出这两项来源。

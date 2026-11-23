@@ -1,6 +1,7 @@
 #!/bin/sh
-# 下载最新的 JMdict(jmdict-simplified 的英文版)切分后放到 public/dict/jmdict/。
-# EDRDG 许可要求定期更新词典数据,请定期重新运行本脚本。
+# 下载 JMdict(jmdict-simplified 的英文版)切分后放到 public/dict/jmdict/。
+# 版本固定为 dict-version.meta.json 里的 jmdictSimplified;每两周由 .github/workflows/dict-update.yml
+# 检查新版本并更新它(EDRDG 许可要求定期更新词典数据)。手动更新词典时,改这个文件里的版本号再运行本脚本。
 set -eu
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMP="$(mktemp -d)"
@@ -15,7 +16,9 @@ github_api() {
   fi
 }
 
-URL="$(github_api https://api.github.com/repos/scriptin/jmdict-simplified/releases/latest | node -e '
+TAG="$(node -p 'require(process.argv[1]).jmdictSimplified' "$ROOT/dict-version.meta.json")"
+# 版本号里的 + 在 URL 路径里要转义
+URL="$(github_api "https://api.github.com/repos/scriptin/jmdict-simplified/releases/tags/$(printf %s "$TAG" | sed 's/+/%2B/g')" | node -e '
 let s = ""
 process.stdin.on("data", (d) => (s += d)).on("end", () => {
   const asset = JSON.parse(s).assets.find((a) => /^jmdict-eng-\d.*\.json\.tgz$/.test(a.name))
