@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
-const THRESHOLD = 160 // 到边缘后继续滑多少像素算「翻章」
-const ARM_MS = 600 // 到边缘之后要停留这么久才开始计数,免得惯性滚动一冲到边缘就直接翻章
-const IDLE_MS = 450 // 停止滑动这么久,进度回落
+const THRESHOLD = 120 // 到边缘后继续滑多少像素算「翻章」
+const ARM_MS = 300 // 滚轮:到边缘之后要停留这么久才开始计数,免得惯性滚动一冲到边缘就直接翻章。手指拖动没有惯性,不需要
+const IDLE_MS = 600 // 停止滑动这么久,进度回落
 
 export type Edge = 'top' | 'bottom'
 
@@ -30,11 +30,12 @@ export function useOverscroll(edge: Edge, enabled: boolean, onTrigger: () => voi
     let idle: ReturnType<typeof setTimeout> | undefined
     let fired = false
 
-    const set = (next: number) => {
+    // hold:手指还按着时进度跟着手指走,不做超时回落
+    const set = (next: number, hold = false) => {
       amount = Math.max(0, Math.min(next, THRESHOLD))
       setProgress(amount / THRESHOLD)
       clearTimeout(idle)
-      if (amount > 0 && amount < THRESHOLD) idle = setTimeout(() => set(0), IDLE_MS)
+      if (!hold && amount > 0 && amount < THRESHOLD) idle = setTimeout(() => set(0), IDLE_MS)
       if (amount >= THRESHOLD && !fired) {
         fired = true
         trigger.current()
@@ -54,12 +55,19 @@ export function useOverscroll(edge: Edge, enabled: boolean, onTrigger: () => voi
       if (e.deltaY * sign > 0 && armed()) set(amount + Math.abs(e.deltaY))
       else if (e.deltaY * sign < 0) set(0)
     }
+    // 手指不离开屏幕,一路滑到边缘再继续拖也算:从手指到达边缘的那一点开始量
     const onTouchStart = (e: TouchEvent) => {
-      touchStart = armed() ? e.touches[0].clientY : undefined
+      touchStart = atEdge(edge) ? e.touches[0].clientY : undefined
     }
     const onTouchMove = (e: TouchEvent) => {
-      if (fired || touchStart === undefined) return
-      set((touchStart - e.touches[0].clientY) * sign)
+      if (fired) return
+      const y = e.touches[0].clientY
+      if (!atEdge(edge)) {
+        touchStart = undefined
+        return
+      }
+      touchStart ??= y
+      set((touchStart - y) * sign, true)
     }
     const onTouchEnd = () => {
       touchStart = undefined
